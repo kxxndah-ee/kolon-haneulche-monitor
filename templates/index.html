@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_title }}</title>
+    <!-- Modern Fonts: Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="navbar">
+            <div class="nav-left">
+                <div class="brand-logo">
+                    <span class="logo-badge">KOLON</span>
+                    <div class="brand-text">
+                        <h1>코오롱글로벌·하늘채 모니터링</h1>
+                        <span class="brand-sub">커뮤니티·포털 실시간 통합 리스크 감지 시스템</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-center">
+                <div class="status-indicator">
+                    <span class="pulse-dot" id="liveDot"></span>
+                    <span id="schedulerStatusText">자동 수집 활성 (15분 주기)</span>
+                </div>
+                <div class="kst-clock" id="kstClock">--:--:-- KST</div>
+            </div>
+
+            <div class="nav-right">
+                <button class="btn btn-primary" id="btnTriggerCrawl">
+                    <i data-lucide="refresh-cw" id="iconCrawl"></i>
+                    <span>지금 즉시 수집</span>
+                </button>
+                <button class="btn btn-outline" id="btnToggleScheduler">
+                    <i data-lucide="power"></i>
+                    <span id="textToggleScheduler">스케줄러 중지</span>
+                </button>
+                <button class="btn btn-secondary" id="btnOpenKeywords">
+                    <i data-lucide="tag"></i>
+                    <span>키워드 관리</span>
+                </button>
+                <button class="btn btn-secondary" id="btnOpenSettings">
+                    <i data-lucide="settings"></i>
+                    <span>설정</span>
+                </button>
+                <button class="btn btn-success" id="btnExportExcel">
+                    <i data-lucide="file-spreadsheet"></i>
+                    <span>엑셀 내보내기</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- KPI Summary Cards -->
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon bg-blue">
+                    <i data-lucide="layers"></i>
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">총 수집 게시글</span>
+                    <h3 class="metric-value" id="valTotalPosts">0</h3>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon bg-emerald">
+                    <i data-lucide="sparkles"></i>
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">오늘 신규 수집</span>
+                    <h3 class="metric-value" id="valTodayPosts">0</h3>
+                </div>
+            </div>
+
+            <div class="metric-card warning-card">
+                <div class="metric-icon bg-amber">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">주의 리스크 감지</span>
+                    <h3 class="metric-value" id="valMediumRisk">0</h3>
+                </div>
+            </div>
+
+            <div class="metric-card danger-card">
+                <div class="metric-icon bg-rose">
+                    <i data-lucide="alert-octagon"></i>
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">고위험/심각 감지</span>
+                    <h3 class="metric-value" id="valHighRisk">0</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Charts Accordion -->
+        <section class="analytics-section">
+            <div class="section-header" id="btnToggleAnalytics">
+                <div class="section-title">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>트렌드 및 채널 통계 분석</span>
+                </div>
+                <div class="toggle-icon">
+                    <i data-lucide="chevron-down" id="analyticsChevron"></i>
+                </div>
+            </div>
+            <div class="charts-grid" id="analyticsContainer">
+                <div class="chart-box">
+                    <h4>최근 7일간 일자별 언급량 추이</h4>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h4>채널별 게시글 점유율</h4>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="channelChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-box">
+                    <h4>감성 및 위험도 분포</h4>
+                    <div class="chart-canvas-wrap">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filter Controls Bar -->
+        <section class="filter-bar">
+            <!-- Channel Filters -->
+            <div class="filter-group">
+                <span class="filter-label">채널:</span>
+                <div class="channel-tabs" id="channelTabs">
+                    <button class="channel-tab active" data-channel="ALL">전체</button>
+                    <button class="channel-tab" data-channel="네이버 카페">네이버 카페</button>
+                    <button class="channel-tab" data-channel="네이버 블로그">네이버 블로그</button>
+                    <button class="channel-tab" data-channel="다음 카페">다음 카페</button>
+                    <button class="channel-tab" data-channel="다음 블로그">다음 블로그</button>
+                    <button class="channel-tab" data-channel="커뮤니티">커뮤니티</button>
+                    <button class="channel-tab" data-channel="뉴스">뉴스</button>
+                </div>
+            </div>
+
+            <!-- Risk & Sentiment Selectors -->
+            <div class="filter-group filter-selectors">
+                <div class="select-wrap">
+                    <label for="selectRisk">위험도:</label>
+                    <select id="selectRisk" class="form-select">
+                        <option value="ALL">전체 위험도</option>
+                        <option value="HIGH">🚨 심각 (High)</option>
+                        <option value="MEDIUM">⚠️ 주의 (Medium)</option>
+                        <option value="INFO">ℹ️ 관심/긍정 (Info)</option>
+                        <option value="SAFE">✅ 안전/정상 (Safe)</option>
+                    </select>
+                </div>
+
+                <div class="select-wrap">
+                    <label for="selectSentiment">감성:</label>
+                    <select id="selectSentiment" class="form-select">
+                        <option value="ALL">전체 감성</option>
+                        <option value="NEGATIVE">부정</option>
+                        <option value="POSITIVE">긍정</option>
+                        <option value="NEUTRAL">중립</option>
+                    </select>
+                </div>
+
+                <button class="btn-bookmark-toggle" id="btnOnlyBookmark" title="북마크한 글만 보기">
+                    <i data-lucide="bookmark"></i>
+                    <span>북마크만</span>
+                </button>
+            </div>
+
+            <!-- Search Input -->
+            <div class="filter-group search-group">
+                <div class="search-input-wrap">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="제목, 내용, 출처, 단지명 검색..." class="form-input">
+                    <button class="search-clear" id="btnClearSearch">&times;</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feed List View -->
+        <main class="feed-section">
+            <div class="feed-header">
+                <div class="feed-info">
+                    <h2 class="feed-title">실시간 모니터링 피드</h2>
+                    <span class="feed-count" id="feedCountText">0건 검색됨</span>
+                </div>
+                <div class="feed-actions">
+                    <button class="btn-icon" id="btnRefreshList" title="새로고침">
+                        <i data-lucide="rotate-cw"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="feed-list" id="feedList">
+                <!-- Dynamically populated post cards -->
+                <div class="feed-empty">
+                    <i data-lucide="inbox"></i>
+                    <p>게시글을 불러오는 중입니다...</p>
+                </div>
+            </div>
+
+            <div class="pagination-wrap">
+                <button class="btn btn-outline" id="btnLoadMore" style="display: none;">
+                    더 많은 게시글 불러오기
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Keywords Management -->
+    <div class="modal-backdrop" id="modalKeywords">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i data-lucide="tag"></i> 모니터링 키워드 & 제외어 관리</h3>
+                <button class="modal-close" data-close="modalKeywords">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="keyword-section">
+                    <h4>수집 타겟 키워드</h4>
+                    <p class="section-desc">코오롱글로벌, 하늘채 아파트 및 특정 분양 단지명을 추가하세요.</p>
+                    <div class="add-keyword-bar">
+                        <input type="text" id="inputNewKeyword" placeholder="예: 번동 하늘채, 울산 하늘채" class="form-input">
+                        <button class="btn btn-primary" id="btnAddKeyword">추가</button>
+                    </div>
+                    <div class="tag-cloud" id="targetKeywordsList"></div>
+                </div>
+
+                <hr class="modal-divider">
+
+                <div class="keyword-section">
+                    <h4>제외 키워드 (노이즈 필터링)</h4>
+                    <p class="section-desc">식당, 펜션, 카페 등 아파트/건설과 무관한 동음이의어 노이즈 단어를 차단합니다.</p>
+                    <div class="add-keyword-bar">
+                        <input type="text" id="inputNewNegative" placeholder="예: 한정식, 쌈밥, 펜션" class="form-input">
+                        <button class="btn btn-secondary" id="btnAddNegative">추가</button>
+                    </div>
+                    <div class="tag-cloud tag-cloud-negative" id="negativeKeywordsList"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-close="modalKeywords">완료</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Settings -->
+    <div class="modal-backdrop" id="modalSettings">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i data-lucide="settings"></i> 모니터링 및 알림 환경설정</h3>
+                <button class="modal-close" data-close="modalSettings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <h4><i data-lucide="bell"></i> Windows 토스트 알림</h4>
+                    <p class="section-desc">주의 및 심각 리스크 게시글이 수집되면 윈도우 우측 하단에 즉시 알림창을 띄웁니다.</p>
+                    <label class="switch-wrap">
+                        <input type="checkbox" id="chkToastEnabled">
+                        <span class="slider"></span>
+                        <span class="switch-label">Windows 바탕화면 토스트 알림 사용</span>
+                    </label>
+                </div>
+
+                <hr class="modal-divider">
+
+                <div class="settings-group">
+                    <h4><i data-lucide="clock"></i> 자동 수집 주기</h4>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="crawlInterval" value="5"> 5분마다
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="crawlInterval" value="15" checked> 15분마다
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="crawlInterval" value="30"> 30분마다
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="crawlInterval" value="60"> 1시간마다
+                        </label>
+                    </div>
+                </div>
+
+                <hr class="modal-divider">
+
+                <div class="settings-group">
+                    <h4><i data-lucide="send"></i> 텔레그램 실시간 알림 연동</h4>
+                    <p class="section-desc">텔레그램 봇 토큰 및 수신할 대화방 Chat ID를 설정합니다.</p>
+                    <label class="switch-wrap" style="margin-bottom: 12px;">
+                        <input type="checkbox" id="chkTelegramEnabled">
+                        <span class="slider"></span>
+                        <span class="switch-label">텔레그램 알림 활성화</span>
+                    </label>
+                    <div class="input-grid">
+                        <div class="input-row">
+                            <label>Bot Token:</label>
+                            <input type="text" id="inputTgToken" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="form-input">
+                        </div>
+                        <div class="input-row">
+                            <label>Chat ID:</label>
+                            <input type="text" id="inputTgChatId" placeholder="@채널명 또는 12345678" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="modal-divider">
+
+                <div class="settings-group">
+                    <h4><i data-lucide="key"></i> 포털 공식 Open API (선택사항)</h4>
+                    <p class="section-desc">API 키가 없어도 공개 웹 검색 수집이 기본 작동하며, 키 등록 시 듀얼 수집됩니다.</p>
+                    <div class="input-grid">
+                        <div class="input-row">
+                            <label>네이버 Client ID:</label>
+                            <input type="text" id="inputNaverId" class="form-input">
+                        </div>
+                        <div class="input-row">
+                            <label>네이버 Client Secret:</label>
+                            <input type="password" id="inputNaverSecret" class="form-input">
+                        </div>
+                        <div class="input-row">
+                            <label>카카오 REST API Key:</label>
+                            <input type="password" id="inputKakaoKey" class="form-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" data-close="modalSettings">취소</button>
+                <button class="btn btn-primary" id="btnSaveSettings">설정 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Post Detail -->
+    <div class="modal-backdrop" id="modalPostDetail">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="detail-header-badges">
+                    <span class="channel-badge" id="detailChannel">채널</span>
+                    <span class="risk-badge" id="detailRisk">위험도</span>
+                    <span class="sentiment-badge" id="detailSentiment">감성</span>
+                </div>
+                <button class="modal-close" data-close="modalPostDetail">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3 class="detail-title" id="detailTitle">제목</h3>
+                <div class="detail-meta">
+                    <span id="detailSource">출처</span> ·
+                    <span id="detailDate">작성일</span> ·
+                    <span id="detailKeyword">키워드</span>
+                </div>
+
+                <div class="detail-risks-box" id="detailRisksBox" style="display: none;">
+                    <strong>감지된 주요 위험 키워드:</strong>
+                    <div class="risk-tags" id="detailRiskTags"></div>
+                </div>
+
+                <div class="detail-content-box">
+                    <h4>본문 요약 및 스니펫</h4>
+                    <p id="detailSnippet" class="snippet-text"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" target="_blank" class="btn btn-primary" id="btnDetailOpenUrl">
+                    <i data-lucide="external-link"></i>
+                    <span>원문 게시글 보기</span>
+                </a>
+                <button class="btn btn-outline" data-close="modalPostDetail">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
